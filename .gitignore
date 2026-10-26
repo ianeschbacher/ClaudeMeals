@@ -1,0 +1,15 @@
+# Build output — 63MB fat jar, rebuilt by `mvn package`
+target/
+
+# Runtime data: your recipes and plans live here, and it changes constantly.
+# Binary SQLite diffs badly; see README for how to snapshot it as SQL instead.
+claudemeals.db
+claudemeals.db-journal
+claudemeals.db-wal
+claudemeals.db-shm
+backups/
+
+# Service logs
+logs/
+
+.DS_Store

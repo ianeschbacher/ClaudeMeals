@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weekly Meals</title>
+<style>
+  :root {
+    --paper: #f3efe6; --surface: #faf7f0; --surface-2: #efeadd;
+    --ink: #403c34; --muted: #948d7e; --line: #e2dbcc;
+    --sage: #7a8567; --sage-deep: #5f6a4d; --clay: #b17c62; --rust: #a05a45;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+    font-family: "Inter", -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.5;
+    -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { font-family: "Iowan Old Style", Palatino, Georgia, serif; font-weight: 500; letter-spacing: .2px; }
+  header { display: flex; align-items: center; gap: 14px; padding: 22px 32px; border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 21px; margin: 0; }
+  header .spacer { flex: 1; }
+  main { max-width: 1080px; margin: 0 auto; padding: 26px 32px 60px; }
+
+  button { font: inherit; cursor: pointer; border: 1px solid var(--line); background: var(--surface);
+    color: var(--ink); border-radius: 10px; padding: 8px 14px; transition: all .18s ease; }
+  button:hover { border-color: var(--sage); color: var(--sage-deep); }
+  button.primary { background: var(--sage); color: #fbfaf5; border-color: var(--sage); }
+  button.primary:hover { background: var(--sage-deep); color: #fff; }
+  button.ghost { background: transparent; border-color: transparent; color: var(--muted); }
+  button.ghost:hover { color: var(--sage-deep); }
+  button.sm { padding: 4px 9px; font-size: 12.5px; }
+  input, select, textarea { font: inherit; background: var(--surface); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 10px; padding: 8px 11px; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--sage); }
+  .muted { color: var(--muted); }
+
+  .tabs { display: flex; gap: 6px; }
+  .tabs button.on { background: var(--surface-2); border-color: var(--sage); color: var(--sage-deep); }
+
+  .weekbar { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+  .weekbar .range { font-family: "Iowan Old Style", Georgia, serif; font-size: 18px; }
+
+  .banner { border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 22px;
+    margin-bottom: 24px; background: linear-gradient(180deg, #f6f2e8, #f1ecdf); display: flex;
+    align-items: center; gap: 16px; }
+  .banner.gap { border-color: #ddc4b6; background: linear-gradient(180deg, #f9efe8, #f5e6db); }
+  .banner .icon { font-size: 24px; }
+  .banner .body { flex: 1; }
+  .banner .kicker { font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--sage-deep); }
+  .banner.gap .kicker { color: var(--rust); }
+  .banner .headline { font-size: 16.5px; margin: 3px 0 2px; font-family: "Iowan Old Style", Georgia, serif; }
+  .banner .why { font-size: 13.5px; color: var(--muted); }
+  .banner .acts { display: flex; gap: 8px; flex-shrink: 0; }
+
+  .day { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 16px 18px; margin-bottom: 14px; }
+  .day > .head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+  .day > .head h3 { margin: 0; font-size: 16px; }
+  .day > .head .date { font-size: 13px; color: var(--muted); }
+  .day > .head .spacer { flex: 1; }
+  .dozenscore { font-size: 12.5px; color: var(--muted); }
+  .dozenscore b { color: var(--sage-deep); font-weight: 500; }
+
+  .slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+  .slot { border: 1px solid var(--line); border-radius: 11px; padding: 10px 12px; background: var(--surface-2); }
+  .slot.optional { border-style: dashed; }
+  .slot .top { display: flex; align-items: center; gap: 6px; }
+  .slot .name { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); flex: 1; }
+  .slot .assign { margin-top: 7px; font-size: 13.5px; min-height: 20px; }
+  .slot .assign .empty { color: var(--clay); }
+  .slot .assign .lo { font-size: 11px; color: var(--muted); }
+  .slot.away { opacity: .5; }
+  .slot.auto { opacity: .72; }
+  .slot.auto .assign { font-style: italic; color: var(--muted); }
+  .slot.away .assign { color: var(--muted); font-style: italic; }
+  .slot.filled { background: #f1f4ec; border-color: #cdd6c0; }
+  .toggle { border: 1px solid var(--line); background: var(--surface); border-radius: 20px;
+    font-size: 10.5px; padding: 2px 8px; cursor: pointer; color: var(--muted); }
+  .toggle.on { background: var(--sage); border-color: var(--sage); color: #fbfaf5; }
+
+  .slot.filled .assign { cursor: grab; }
+  .slot.filled .assign:active { cursor: grabbing; }
+  .slot.dragging { opacity: .4; }
+  .slot.dropok { border-color: var(--sage); background: #eef2e7; }
+  .slot.dropbad { border-color: var(--rust); }
+
+  /* Daily Dozen coverage panel */
+  .coverage { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 18px 20px; margin-top: 22px; }
+  .coverage h3 { margin: 0 0 3px; font-size: 16px; }
+  .coverage .sub { font-size: 12.5px; color: var(--muted); margin-bottom: 14px; }
+  .covrow { display: flex; align-items: center; gap: 12px; padding: 7px 0; border-top: 1px solid var(--line); }
+  .covrow:first-of-type { border-top: none; }
+  .covrow .nm { width: 150px; font-size: 13.5px; }
+  .covrow .track { flex: 1; height: 7px; background: var(--surface-2); border-radius: 4px; overflow: hidden;
+    display: flex; gap: 1px; }
+  .covrow .track i { flex: 1; background: var(--surface-2); }
+  .covrow .track i.on { background: var(--sage); }
+  .covrow .vd { width: 270px; font-size: 12px; color: var(--muted); text-align: right; }
+  .covrow.bad .nm { color: var(--rust); }
+  .covrow.bad .vd { color: var(--rust); }
+  .advice { margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--line); }
+  .advice p { margin: 0 0 7px; font-size: 13px; color: var(--ink); }
+  .advice p:before { content: "→ "; color: var(--sage-deep); }
+
+  .grabnote { font-size: 12px; color: var(--clay); margin-top: 8px; }
+  .grabnote { font-size: 12px; color: var(--clay); margin-top: 8px; }
+  .mealacts { display: flex; align-items: center; gap: 4px; margin-top: 7px; }
+  .thumb { border: 1px solid var(--line); background: var(--surface); border-radius: 8px;
+    padding: 2px 7px; font-size: 13px; cursor: pointer; opacity: .45; }
+  .thumb:hover { opacity: 1; }
+  .thumb.on { opacity: 1; background: #eef2e7; border-color: var(--sage); }
+  .mealacts .sm { font-size: 11.5px; padding: 3px 8px; }
+  .dozenrow { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 12px; padding-top: 11px;
+    border-top: 1px solid var(--line); }
+  .pip { font-size: 10.5px; padding: 2px 8px; border-radius: 20px; border: 1px solid var(--line);
+    color: var(--muted); background: var(--surface); }
+  .pip.some { color: var(--clay); border-color: #e3cfc2; }
+  .pip.met { background: var(--sage); border-color: var(--sage); color: #fbfaf5; }
+
+  .rgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+  .rcard { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+  .rcard h3 { margin: 0 0 8px; font-size: 17px; }
+  .rcard .line { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  .rcard .acts { display: flex; gap: 8px; margin-top: 14px; }
+
+  /* review */
+  .review-banner .acts { display: flex; gap: 8px; }
+  .buckets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 6px; }
+  .bucket { border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2);
+    padding: 10px; min-height: 118px; transition: background .15s ease, border-color .15s ease; }
+  .bucket.over { border-color: var(--sage); background: #eef2e7; }
+  .bucket h4 { margin: 0 0 2px; font-size: 13px; font-family: "Iowan Old Style", Georgia, serif; }
+  .bucket .blurb { font-size: 10.5px; color: var(--muted); line-height: 1.35; margin-bottom: 8px; }
+  .staging { border: 1px dashed var(--clay); border-radius: 12px; background: #f9f1ea;
+    padding: 10px 12px; margin-bottom: 14px; }
+  .staging.empty { border-color: var(--line); background: var(--surface-2); }
+  .staging .lead { font-size: 12px; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--rust); margin-bottom: 8px; }
+  .staging.empty .lead { color: var(--muted); }
+  .pill-row { display: flex; flex-wrap: wrap; gap: 7px; }
+  .rpill { display: inline-flex; align-items: center; gap: 6px; background: var(--surface);
+    border: 1px solid var(--line); border-radius: 20px; padding: 5px 11px; font-size: 12.5px;
+    cursor: grab; user-select: none; }
+  .rpill:active { cursor: grabbing; }
+  .rpill.dragging { opacity: .45; }
+  .rpill .meals { color: var(--muted); font-size: 11px; }
+  .rpill .std { font-size: 11px; }
+  .bucket .rpill { width: 100%; justify-content: space-between; margin-bottom: 6px; border-radius: 9px; }
+  .dlg.wide { max-width: none; }
+  dialog.wide { max-width: 860px; }
+  .rating-tag { font-size: 11px; color: var(--muted); }
+  /* sides */
+  .slot .side { font-size: 12px; color: var(--sage-deep); margin-top: 4px;
+    display: flex; align-items: center; gap: 5px; }
+  .slot .side .x { cursor: pointer; color: var(--muted); font-size: 11px; }
+  .slot .addside { font-size: 11px; color: var(--muted); cursor: pointer; margin-top: 4px;
+    background: none; border: none; padding: 0; }
+  .slot .addside:hover { color: var(--sage-deep); text-decoration: underline; }
+  .sidebadge { font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--clay); background: #f7efe9; border: 1px solid #e6d3c6;
+    border-radius: 20px; padding: 1px 7px; }
+  .pksection { font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--muted); margin: 14px 0 7px; }
+
+  /* Daily Dozen tick grid */
+  .tickgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; }
+  .tick { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line);
+    background: var(--surface); border-radius: 10px; padding: 7px 10px; cursor: pointer;
+    user-select: none; transition: all .14s ease; }
+  .tick:hover { border-color: var(--sage); }
+  .tick .lbl { flex: 1; font-size: 13px; }
+  .tick .tgt { font-size: 10.5px; color: var(--muted); }
+  .tick .n { min-width: 22px; text-align: center; font-size: 13px; font-weight: 500;
+    color: var(--muted); }
+  .tick.on { background: #eef2e7; border-color: var(--sage); }
+  .tick.on .n { color: var(--sage-deep); }
+  .tick .minus { border: none; background: none; color: var(--muted); cursor: pointer;
+    font-size: 14px; padding: 0 2px; visibility: hidden; }
+  .tick.on .minus { visibility: visible; }
+  .tick .minus:hover { color: var(--rust); }
+
+  .cirow { display: flex; align-items: center; gap: 12px; background: var(--surface);
+    border: 1px solid var(--line); border-radius: 11px; padding: 10px 14px; margin-bottom: 7px; }
+  .cirow.done { background: #eef2e7; border-color: #cdd6c0; }
+  .cirow .what { flex: 1; min-width: 0; }
+  .cirow .nm { font-size: 13.5px; }
+  .cirow .meta { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .cirow .stepper { display: flex; align-items: center; gap: 4px; }
+  .cirow .stepper button { padding: 2px 9px; font-size: 14px; line-height: 1.2; }
+  .cirow .stepper .n { min-width: 26px; text-align: center; font-size: 14px; }
+  .cirow .none { font-size: 12px; }
+  .nrprogress { display: flex; gap: 8px; margin: 4px 0 14px; }
+  .nrdot { flex: 1; height: 8px; border-radius: 5px; background: var(--surface-2);
+    border: 1px solid var(--line); }
+  .nrdot.on { background: var(--sage); border-color: var(--sage); }
+  .nrnew { display: flex; align-items: center; gap: 8px; background: var(--surface-2);
+    border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin-bottom: 7px;
+    font-size: 13.5px; }
+  .nrnew .meta { color: var(--muted); font-size: 12px; margin-left: auto; }
+  .newbadge { font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--sage-deep); background: #eef2e7; border: 1px solid #cdd6c0;
+    border-radius: 20px; padding: 1px 7px; }
+  .snoozebar { margin-bottom: 12px; }
+  #pkList { max-height: 46vh; overflow-y: auto; }
+  #pkList .rowline { margin-bottom: 5px; }
+  .snoozebar .danger { margin-top: 6px; }
+  button.danger { color: var(--rust); border-color: #e3c9c0; }
+  button.danger:hover { background: #f9efeb; border-color: var(--rust); color: var(--rust); }
+  .dlg .acts .spacer { flex: 1; }
+  .snoozebar button { width: 100%; text-align: left; }
+  .rcard .snoozed { color: var(--clay); font-size: 12px; }
+  .rcard .cap { color: var(--muted); font-size: 11.5px; }
+  .touchhint { font-size: 11.5px; color: var(--muted); margin-top: 12px; }
+
+  dialog { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface);
+    color: var(--ink); padding: 0; max-width: 620px; width: 92%; }
+  dialog::backdrop { background: rgba(60,55,45,.35); }
+  .dlg { padding: 24px 26px; }
+  .dlg h2 { margin: 0 0 16px; font-size: 19px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 5px; }
+  .field input, .field textarea { width: 100%; }
+  .rowline { display: flex; gap: 8px; align-items: center; margin-bottom: 7px; }
+  .rowline select { flex: 1; }
+  .rowline input[type=number] { width: 78px; }
+  .dlg .acts { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+  .yieldrow { align-items: flex-start; flex-wrap: wrap; padding: 9px 10px; border: 1px solid var(--line);
+    border-radius: 11px; background: var(--surface-2); margin-bottom: 8px; }
+  .yieldrow input[type=number] { width: 62px; }
+  .yieldrow .chips { display: flex; flex-wrap: wrap; gap: 5px; flex: 1; }
+  .mealchip { border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+    border-radius: 20px; font-size: 11.5px; padding: 4px 10px; cursor: pointer; }
+  .mealchip.on { background: var(--sage); border-color: var(--sage); color: #fbfaf5; }
+  .mealchip.optional { border-style: dashed; }
+  .hint { font-size: 12.5px; color: var(--muted); margin: -6px 0 12px; }
+  .today-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+  .today-head h2 { margin: 0; font-size: 22px; }
+  .today-head .sub { color: var(--muted); font-size: 13.5px; }
+  .today-score { margin-left: auto; font-size: 13px; color: var(--muted); }
+  .today-score b { color: var(--sage-deep); font-weight: 500; font-size: 15px; }
+  .tmeal { display: flex; align-items: center; gap: 14px; background: var(--surface);
+    border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; margin-bottom: 9px;
+    cursor: pointer; transition: border-color .15s ease; }
+  .tmeal:hover { border-color: var(--sage); }
+  .tmeal .slotname { width: 92px; flex-shrink: 0; font-size: 11px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted); }
+  .tmeal .dish { flex: 1; min-width: 0; }
+  .tmeal .dish .n { font-size: 15.5px; }
+  .tmeal .dish .side { font-size: 12.5px; color: var(--sage-deep); margin-top: 3px; }
+  .mealacts { display: flex; align-items: center; gap: 4px; margin-top: 7px; }
+  .thumb { border: 1px solid var(--line); background: var(--surface); border-radius: 8px;
+    padding: 2px 7px; font-size: 13px; cursor: pointer; opacity: .45; }
+  .thumb:hover { opacity: 1; }
+  .thumb.on { opacity: 1; background: #eef2e7; border-color: var(--sage); }
+  .mealacts .sm { font-size: 11.5px; padding: 3px 8px; }
+  .tmeal .tag { flex-shrink: 0; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase;
+    border-radius: 20px; padding: 3px 10px; border: 1px solid var(--line); color: var(--muted); }
+  .tmeal .tag.cook { background: #f6efe6; border-color: #e3d3bd; color: var(--clay); }
+  .tmeal .tag.ready { background: #eef2e7; border-color: #cdd6c0; color: var(--sage-deep); }
+  .tmeal.empty { border-style: dashed; }
+  .tmeal.empty .dish .n { color: var(--clay); }
+  .tmeal.out { opacity: .5; }
+  .tmeal.out .dish .n { font-style: italic; color: var(--muted); }
+  .prow { display: flex; align-items: baseline; gap: 14px; background: var(--surface);
+    border: 1px solid var(--line); border-radius: 11px; padding: 12px 16px; margin-bottom: 7px; }
+  .prow .when { width: 74px; flex-shrink: 0; font-family: "Iowan Old Style", Georgia, serif;
+    font-size: 14px; color: var(--sage-deep); }
+  .prow .what { flex: 1; min-width: 0; }
+  .prow .nm { font-size: 14.5px; }
+  .prow .det { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+  .prow .count { flex-shrink: 0; font-size: 12px; color: var(--muted); }
+  .prow { cursor: pointer; transition: border-color .15s ease, transform .12s ease; }
+  .prow:hover { border-color: var(--sage); transform: translateY(-1px); }
+  .prow.unchecked { border-left: 3px solid var(--clay); }
+  .toggle.big { font-size: 12.5px; padding: 6px 13px; border-radius: 20px; }
+  .checkbadge { font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--rust); background: #f9efe8; border: 1px solid #e6cfc2;
+    border-radius: 20px; padding: 1px 7px; white-space: nowrap; }
+  .daygroup { font-family: "Iowan Old Style", Georgia, serif; font-size: 13px;
+    letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+    margin: 20px 0 9px; padding-bottom: 5px; border-bottom: 1px solid var(--line); }
+  .daygroup:first-child { margin-top: 4px; }
+  .vrow { display: flex; align-items: center; gap: 12px; background: var(--surface);
+    border: 1px solid var(--line); border-radius: 11px; padding: 10px 14px; margin-bottom: 7px; }
+  .vrow .who { flex: 1; min-width: 0; }
+  .vrow .nm { font-size: 14px; }
+  .vrow .det { font-size: 11.5px; color: var(--muted); margin-top: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .vrow .meals { color: var(--sage-deep); }
+  .vrow .acts { display: flex; gap: 6px; flex-shrink: 0; }
+  .vcount { font-size: 12.5px; color: var(--muted); margin: 0 0 12px; }
+  .tabs button .badge { display: inline-block; margin-left: 6px; background: var(--clay);
+    color: #fff; border-radius: 20px; font-size: 10.5px; padding: 0 6px; }
+  .empty-state { text-align: center; padding: 50px 20px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <span style="font-size:22px">🥬</span>
+  <h1>Weekly Meals</h1>
+  <span class="spacer"></span>
+  <div class="tabs">
+    <button id="tabToday" onclick="show('today')">Today</button>
+    <button id="tabWeek" class="on" onclick="show('week')">Week</button>
+    <button id="tabRecipes" onclick="show('recipes')">Recipes</button>
+    <button id="tabPrep" onclick="show('prep')">Prep</button>
+  </div>
+</header>
+
+<main>
+  <section id="viewToday" hidden>
+    <div id="todayBody"></div>
+  </section>
+
+  <section id="viewWeek">
+    <div class="weekbar">
+      <button class="ghost" onclick="shiftWeek(-7)">‹ Prev</button>
+      <span class="range" id="range"></span>
+      <button class="ghost" onclick="shiftWeek(7)">Next ›</button>
+      <button class="ghost" onclick="goToday()">Today</button>
+      <span class="spacer" style="flex:1"></span>
+      <button class="primary" onclick="autofill()">Plan these 7 days</button>
+      <button onclick="show('prep')">Prep list</button>
+      <button onclick="clearWeek()">Clear</button>
+    </div>
+    <div id="banner"></div>
+    <div id="days"></div>
+    <div id="coverage"></div>
+  </section>
+
+  <section id="viewPrep" hidden>
+    <div class="weekbar">
+      <button class="ghost" onclick="shiftWeek(-7); show('prep')">‹ Prev</button>
+      <span class="range" id="prepRange"></span>
+      <button class="ghost" onclick="shiftWeek(7); show('prep')">Next ›</button>
+      <span class="spacer" style="flex:1"></span>
+      <button id="prepOnlyUnchecked" class="toggle big" onclick="togglePrepFilter()">Only unchecked imports</button>
+    </div>
+    <div id="prepBody"></div>
+  </section>
+
+  <section id="viewRecipes" hidden>
+    <div class="weekbar">
+      <span class="range">Recipes</span>
+      <span class="spacer" style="flex:1"></span>
+      <input id="rqSearch" placeholder="Filter by name…" oninput="renderRecipes()" style="width:200px">
+      <button class="primary" onclick="openRecipe()">Add recipe</button>
+    </div>
+    <div id="recipes"></div>
+  </section>
+</main>
+
+<dialog id="recipeDlg"><div class="dlg">
+  <h2 id="rdTitle">Add recipe</h2>
+  <div class="field">
+    <label>Name</label>
+    <input id="rdName" placeholder="Black bean & kale bowl">
+  </div>
+  <div class="field">
+    <label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:13.5px;color:var(--ink);cursor:pointer">
+      <input type="checkbox" id="rdSide" style="width:auto">
+      This is a side dish
+    </label>
+    <div class="hint" style="margin:4px 0 0">Sides are never scheduled on their own — you add them
+      onto a meal yourself, and their Daily Dozen ticks count toward the day.</div>
+  </div>
+  <div class="field">
+    <label>Servings by meal</label>
+    <div class="hint">One cook yields how many servings, and which meals they can be.
+      Tap more than one meal when a serving could be <em>either</em> — 2 yogurt bowls that are
+      breakfast <em>or</em> snack share the same 2 servings. For leftovers eaten as a different
+      meal (1 dinner, then 2 lunches), add a second row.</div>
+    <div id="rdYields"></div>
+    <button class="sm" onclick="addYieldRow()">+ Add servings</button>
+  </div>
+  <div class="field">
+    <label>Daily Dozen ticks (per serving)</label>
+    <div class="hint">Click an item to add a serving; click − to take one off.</div>
+    <div id="rdTicks" class="tickgrid"></div>
+  </div>
+  <div class="field">
+    <label>Notes</label>
+    <textarea id="rdNotes" rows="2" placeholder="Source, tweaks, anything — no method needed"></textarea>
+  </div>
+  <div class="acts">
+    <button id="rdDelete" class="danger" onclick="deleteRecipe(editingId, true)">Delete recipe</button>
+    <span class="spacer"></span>
+    <button class="ghost" onclick="recipeDlg.close()">Cancel</button>
+    <button class="primary" onclick="saveRecipe()">Save</button>
+  </div>
+</div></dialog>
+
+<dialog id="pickDlg"><div class="dlg">
+  <h2 id="pkTitle">Choose a recipe</h2>
+  <div id="pkSnooze" class="snoozebar"></div>
+  <input id="pkSearch" placeholder="Filter by name…" oninput="renderPickList()"
+         style="width:100%;margin-bottom:10px">
+  <div id="pkList"></div>
+  <div class="acts">
+    <button class="ghost" onclick="pickDlg.close()">Cancel</button>
+  </div>
+</div></dialog>
+
+<script>
+let MEALS = [], DOZEN = [], RATINGS = [], RECIPES = [], WEEK = null;
+let editingId = null, pickSlot = null;
+let start = null;   // the seven days on screen; defaults to today
+
+/** "This week" / "Next week" / "Last week", so a shifted default is never disorienting. */
+/** Periods roll from whenever planning started, so label them by where today falls. */
+function weekChip(s) {
+  const today = iso(new Date());
+  const startD = new Date(s + "T12:00:00");
+  const endD = new Date(s + "T12:00:00"); endD.setDate(endD.getDate() + 6);
+  const t = new Date(today + "T12:00:00");
+  if (t >= startD && t <= endD) {
+    const left = Math.round((endD - t) / 86400000);
+    return left === 0 ? "Last day" : "Current · " + left + " day" + (left > 1 ? "s" : "") + " left";
+  }
+  return t < startD ? "Upcoming" : "Finished";
+}
+function iso(d) { return new Date(d).toISOString().slice(0, 10); }
+function fmt(s) { const d = new Date(s + "T12:00:00");
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }); }
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  if (!r.ok) { alert("Request failed: " + r.status); throw new Error(r.status); }
+  return r.status === 204 ? null : r.json();
+}
+
+function show(v) {
+  viewToday.hidden = v !== "today";
+  viewWeek.hidden = v !== "week";
+  viewRecipes.hidden = v !== "recipes";
+  viewPrep.hidden = v !== "prep";
+  tabToday.classList.toggle("on", v === "today");
+  tabWeek.classList.toggle("on", v === "week");
+  tabRecipes.classList.toggle("on", v === "recipes");
+  tabPrep.classList.toggle("on", v === "prep");
+  if (v === "recipes") loadRecipes();
+  if (v === "prep") loadPrep();
+  if (v === "today") loadToday();
+}
+
+function shiftWeek(n) { const d = new Date(start + "T12:00:00"); d.setDate(d.getDate() + n);
+  start = iso(d); loadWeek(); }
+function goToday() { start = iso(new Date()); loadWeek(); }
+
+async function loadWeek() {
+  WEEK = await api("/api/week?start=" + start);
+  start = WEEK.start;
+  renderWeek();
+}
+
+async function autofill() {
+  WEEK = await api("/api/week/autofill?start=" + start, { method: "POST" });
+  renderWeek();
+}
+async function clearWeek() {
+  WEEK = await api("/api/week/clear?start=" + start, { method: "POST" });
+  renderWeek();
+}
+
+function renderWeek() {
+  const end = new Date(start + "T12:00:00"); end.setDate(end.getDate() + 6);
+  const chip = weekChip(start);
+  range.innerHTML = fmt(start) + " – " + fmt(iso(end)) +
+    (chip ? ' <span class="chip">' + chip + "</span>" : "");
+  renderBanner();
+  days.innerHTML = WEEK.days.map(renderDay).join("");
+  wireSlotDnd();
+  renderCoverage();
+}
+
+/* Meals can be dragged between slots: drop on an empty slot to move it, on a filled one to
+   swap. Both ends get pinned, so a hand-placed meal survives the next replan. */
+function wireSlotDnd() {
+  let fromId = null;
+  days.querySelectorAll('.slot[draggable="true"]').forEach(el => {
+    el.addEventListener("dragstart", e => {
+      fromId = el.dataset.slot;
+      el.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", fromId);
+    });
+    el.addEventListener("dragend", () => { el.classList.remove("dragging"); fromId = null; });
+  });
+
+  days.querySelectorAll(".slot").forEach(el => {
+    el.addEventListener("dragover", e => {
+      if (!fromId || el.dataset.slot === fromId) return;
+      const ok = el.dataset.home === "true";
+      e.preventDefault();
+      el.classList.add(ok ? "dropok" : "dropbad");
+      e.dataTransfer.dropEffect = ok ? "move" : "none";
+    });
+    el.addEventListener("dragleave", () => el.classList.remove("dropok", "dropbad"));
+    el.addEventListener("drop", async e => {
+      e.preventDefault();
+      el.classList.remove("dropok", "dropbad");
+      const src = e.dataTransfer.getData("text/plain");
+      if (!src || el.dataset.slot === src) return;
+      if (el.dataset.home !== "true") return;   // can't drop onto a meal you're not eating in
+      await api("/api/week/slots/" + src + "/move?toSlotId=" + el.dataset.slot, { method: "PUT" });
+      await loadWeek();
+    });
+  });
+}
+
+async function renderCoverage() {
+  const g = await api("/api/dozen-gaps?start=" + start);
+  const rows = g.items.map(i => {
+    const bar = Array.from({ length: 7 }, (_, n) =>
+      '<i class="' + (n < i.daysMet ? "on" : "") + '"></i>').join("");
+    const stranded = i.recipesCovering > 0 && i.recipesReachable === 0;
+    const bad = i.recipesCovering === 0 || i.daysMet === 0 || stranded;
+    // Show usable-vs-total when some recipes can't be scheduled, so the count doesn't read
+    // as coverage the planner actually has.
+    const count = stranded
+      ? i.recipesCovering + " recipe" + (i.recipesCovering === 1 ? "" : "s") + ", none usable"
+      : (i.recipesReachable < i.recipesCovering
+          ? i.recipesReachable + " of " + i.recipesCovering + " recipes usable"
+          : i.recipesCovering + " recipe" + (i.recipesCovering === 1 ? "" : "s"));
+    return '<div class="covrow' + (bad ? " bad" : "") + '">' +
+      '<span class="nm">' + i.label + "</span>" +
+      '<span class="track">' + bar + "</span>" +
+      '<span class="vd">' + i.verdict + " · " + count + "</span></div>";
+  }).join("");
+  coverage.innerHTML = '<div class="coverage"><h3>Daily Dozen coverage</h3>' +
+    '<div class="sub">Days this week that hit each target, and how much of your library can reach it.</div>' +
+    rows + '<div class="advice">' + g.advice.map(a => "<p>" + esc(a) + "</p>").join("") + "</div></div>";
+}
+
+function renderBanner() {
+  const g = WEEK.gaps;
+  if (g.total === 0) {
+    const planned = WEEK.days.flatMap(d => d.slots).filter(s => s.recipeId).length;
+    if (planned === 0) {
+      banner.innerHTML = card("", "Nothing planned yet",
+        "Mark the meals you won't be eating at home, then hit Plan the week.", "🍽️");
+      return;
+    }
+    const hit = WEEK.days.reduce((a, d) => a + d.dozenHit, 0);
+    const poss = WEEK.days.reduce((a, d) => a + d.dozenPossible, 0);
+    banner.innerHTML = card("Week covered", "Every meal at home is accounted for",
+      "Daily Dozen: " + hit + " of " + poss + " item-days hit across the week.", "✅");
+    return;
+  }
+  const need = g.byMeal.join(", ");
+  const why = RECIPES.length === 0
+    ? "No recipes yet — add some so the planner has something to work with."
+    : "Short by " + need + ". Add recipes that cover those meals, or mark them as eating out.";
+  banner.innerHTML = card("Can't fill the week", g.total + " meal" + (g.total > 1 ? "s" : "") + " unplanned",
+    why, "📝", true,
+    '<button class="primary" onclick="show(\'recipes\');openRecipe()">Add a recipe</button>');
+}
+
+function card(kicker, headline, why, icon, isGap, action) {
+  return '<div class="banner' + (isGap ? " gap" : "") + '">' +
+    '<span class="icon">' + icon + '</span><div class="body">' +
+    (kicker ? '<div class="kicker">' + kicker + '</div>' : "") +
+    '<div class="headline">' + headline + '</div>' +
+    '<div class="why">' + why + '</div></div>' + (action || "") + '</div>';
+}
+
+function renderDay(d) {
+  const slots = d.slots.map(s => renderSlot(s)).join("");
+  const short = d.dozen.filter(x => !x.met && x.item !== "BEVERAGES" && x.item !== "EXERCISE")
+    .map(x => x.label.toLowerCase() + " " + (x.target - x.count));
+  const pips = d.dozen.filter(x => x.count > 0 || x.met)
+    .map(x => '<span class="pip ' + (x.met ? "met" : "some") + '">' + x.label + " " + x.count + "/" + x.target + "</span>")
+    .join("");
+  return '<div class="day"><div class="head">' +
+    "<h3>" + d.dayName + "</h3><span class=\"date\">" + fmt(d.date) + "</span>" +
+    '<span class="spacer"></span>' +
+    '<span class="dozenscore">Daily Dozen <b>' + d.dozenHit + "/" + d.dozenPossible + "</b></span>" +
+    '</div><div class="slots">' + slots + "</div>" +
+    (pips ? '<div class="dozenrow">' + pips + "</div>" : "") +
+    (short.length ? '<div class="grabnote">Short: ' + esc(short.join(", ")) +
+      " — a handful of something covers it</div>" : "") + "</div>";
+}
+
+function renderSlot(s) {
+  const cls = "slot" + (s.required ? "" : " optional") +
+    (s.home ? "" : (!s.required && !s.optOut ? " auto" : " away")) + (s.recipeId ? " filled" : "");
+  let body;
+  if (!s.home) body = s.required ? "Eating out" : (s.optOut ? "Off" : "Added if the day needs it");
+  else if (s.recipeId) body = esc(s.recipeName) + (s.leftover ? ' <span class="lo">· leftovers</span>' : "");
+  else body = '<span class="empty">' + (s.required ? "Needs a meal" : "Optional") + "</span>";
+
+  // A side hangs off a filled meal; empty or eaten-out slots get no side affordance.
+  let sideBit = "";
+  if (s.home && s.recipeId) {
+    sideBit = s.sideRecipeId
+      ? '<div class="side">+ ' + esc(s.sideName) +
+        (s.sideLeftover ? ' <span class="lo">· made earlier</span>' : "") +
+        ' <span class="x" title="Remove side" onclick="setSide(' + s.id + ',null)">✕</span></div>'
+      : '<button class="addside" onclick="pick(' + s.id + ",'" + s.mealType + "',true)\">+ side</button>";
+  }
+
+  return '<div class="' + cls + '" data-slot="' + s.id + '" data-home="' + s.home +
+    '"' + (s.recipeId ? ' draggable="true"' : "") + '><div class="top">' +
+    '<span class="name">' + s.mealLabel + "</span>" +
+    '<button class="toggle' + (s.home ? " on" : "") + '" onclick="toggleHome(' + s.id + "," + !s.home + ')">' +
+    (s.home ? "Home" : (s.required ? "Out" : (s.optOut ? "Off" : "Auto"))) + "</button></div>" +
+    '<div class="assign" ' + (s.home ? 'onclick="pick(' + s.id + ",'" + s.mealType + "')\"" : "") + ">" +
+    body + "</div>" + sideBit + "</div>";
+}
+
+async function toggleHome(id, home) {
+  await api("/api/week/slots/" + id + "/home?home=" + home, { method: "PUT" });
+  await loadWeek();
+}
+
+let pickCandidates = [], pickSidesOnly = false;
+
+/** @param sidesOnly true when the user clicked "+ side" rather than the meal itself */
+async function pick(slotId, mealType, sidesOnly) {
+  pickSlot = slotId;
+  pickSidesOnly = !!sidesOnly;
+  const slot = WEEK.days.flatMap(d => d.slots).find(s => s.id === slotId);
+  const fits = r => r.yields.some(y => y.mealTypes.includes(mealType));
+
+  pkTitle.textContent = sidesOnly ? "Add a side" : "Choose a recipe";
+  pickCandidates = RECIPES.filter(r => (sidesOnly ? r.side : !r.side) && fits(r));
+
+  // Snoozing or binning the meal that's already here is the common case, so it leads.
+  pkSnooze.innerHTML = !sidesOnly && slot && slot.recipeId
+    ? '<button class="sm" onclick="snooze(' + slot.recipeId + ')">😴 Snooze ' +
+        esc(slot.recipeName) + " — skip this week and next</button>" +
+      '<button class="sm danger" onclick="deleteRecipe(' + slot.recipeId + ')">🗑 Delete ' +
+        esc(slot.recipeName) + " — remove from my recipes for good</button>"
+    : "";
+
+  pkSearch.value = "";
+  pkSearch.hidden = pickCandidates.length < 12;   // pointless on a short list
+  renderPickList();
+  pickDlg.showModal();
+  if (!pkSearch.hidden) pkSearch.focus();
+}
+
+function renderPickList() {
+  const q = (pkSearch.value || "").trim().toLowerCase();
+  const shown = q ? pickCandidates.filter(r => r.name.toLowerCase().includes(q)) : pickCandidates;
+
+  if (pickCandidates.length === 0) {
+    pkList.innerHTML = pickSidesOnly
+      ? '<p class="muted">No sides fit this meal yet. Add a recipe with "This is a side dish" ticked.</p>'
+      : '<p class="muted">No main courses cover this meal yet. Add one from the Recipes tab.</p>';
+    return;
+  }
+
+  const head = pickSidesOnly ? ""
+    : '<div class="rowline"><button class="sm" onclick="assign(null)">Clear this slot</button></div>';
+  const count = '<p class="vcount">Showing ' + shown.length + " of " + pickCandidates.length + "</p>";
+  const rows = shown.length === 0
+    ? '<p class="muted">Nothing matches "' + esc(q) + '".</p>'
+    : shown.map(r => '<div class="rowline"><button class="sm" style="flex:1;text-align:left" onclick="' +
+        (pickSidesOnly ? "setSide(" + pickSlot + "," + r.id + ")" : "assign(" + r.id + ")") + '">' +
+        (r.rating ? ratingIcon(r.rating) + " " : "") + esc(r.name) +
+        (r.importedFrom && !r.verified ? ' <span class="checkbadge">Unchecked</span>' : "") +
+        "</button></div>").join("");
+  pkList.innerHTML = head + count + rows;
+}
+
+async function setSide(slotId, recipeId) {
+  const q = recipeId == null ? "" : "?recipeId=" + recipeId;
+  await api("/api/week/slots/" + slotId + "/side" + q, { method: "PUT" });
+  if (pickDlg.open) pickDlg.close();
+  await loadWeek();
+  if (!viewToday.hidden) await loadToday();
+}
+
+async function assign(recipeId) {
+  const q = recipeId == null ? "" : "?recipeId=" + recipeId;
+  await api("/api/week/slots/" + pickSlot + "/recipe" + q, { method: "PUT" });
+  pickDlg.close();
+  await loadWeek();
+  if (!viewToday.hidden) await loadToday();
+}
+
+/* ---- today ---- */
+
+async function loadToday() {
+  const todayIso = iso(new Date());
+  // Anchored on today itself, so this is right whichever seven days the planner shows.
+  const w = await api("/api/week?start=" + todayIso);
+  const day = w.days.find(d => d.date === todayIso);
+  if (!day) { todayBody.innerHTML = '<div class="empty-state">Nothing for today.</div>'; return; }
+
+  const pretty = new Date(todayIso + "T12:00:00")
+    .toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+
+  const meals = day.slots.map(s => {
+    let cls = "tmeal", body, tag = "";
+    if (!s.home) {
+      cls += " out";
+      body = '<div class="n">' + (s.required ? "Eating out" : "Not planned") + "</div>";
+    } else if (s.recipeId) {
+      tag = s.leftover
+        ? '<span class="tag ready">Already made</span>'
+        : '<span class="tag cook">Cook today</span>';
+      body = '<div class="n">' + esc(s.recipeName) + "</div>" +
+        (s.sideName ? '<div class="side">+ ' + esc(s.sideName) + "</div>" : "") +
+        '<div class="mealacts" onclick="event.stopPropagation()">' + thumbs(s.recipeId) +
+        '<button class="sm ghost" onclick="notMade(' + s.id + ')">Didn\'t make it</button></div>';
+    } else {
+      cls += " empty";
+      body = '<div class="n">Nothing planned</div>';
+    }
+    return '<div class="' + cls + '"' +
+      (s.home ? ' onclick="pick(' + s.id + ",'" + s.mealType + "')\"" : "") + ">" +
+      '<span class="slotname">' + s.mealLabel + "</span>" +
+      '<span class="dish">' + body + "</span>" + tag + "</div>";
+  }).join("");
+
+  const cooking = day.slots.filter(s => s.recipeId && !s.leftover).length;
+  const pips = day.dozen.filter(x => x.count > 0)
+    .map(x => '<span class="pip ' + (x.met ? "met" : "some") + '">' + x.label + " " +
+      x.count + "/" + x.target + "</span>").join("");
+
+  todayBody.innerHTML =
+    '<div class="today-head"><h2>' + pretty + "</h2>" +
+    '<span class="sub">' + (cooking ? cooking + " to cook" : "nothing to cook") + "</span>" +
+    '<span class="today-score">Daily Dozen <b>' + day.dozenHit + "/" + day.dozenPossible +
+    "</b></span></div>" +
+    '<p class="vcount">Tap a meal to change it</p>' + meals +
+    (pips ? '<div class="dozenrow">' + pips + "</div>" : "") + shortfallNote(day);
+}
+
+/** What the day is still missing — a nudge, not another thing to cook. */
+function shortfallNote(day) {
+  const short = day.dozen
+    .filter(x => !x.met && x.item !== "BEVERAGES" && x.item !== "EXERCISE")
+    .map(x => x.label.toLowerCase() + " " + (x.target - x.count));
+  return short.length
+    ? '<div class="grabnote">Short: ' + esc(short.join(", ")) +
+      " — a handful of something covers it</div>"
+    : "";
+}
+
+function ratingIcon(name) {
+  return { UP: "\u{1F44D}", MID: "\u{1F44C}", DOWN: "\u{1F44E}" }[name] || "";
+}
+
+/** One verdict per recipe, set straight from the meal. Tapping the same thumb clears it. */
+function thumbs(recipeId) {
+  const r = RECIPES.find(x => x.id === recipeId);
+  const now = r ? r.rating : null;
+  return ["UP", "MID", "DOWN"].map(v =>
+    '<button class="thumb' + (now === v ? " on" : "") + '" title="' + labelOf(RATINGS, v) +
+    '" onclick="rate(' + recipeId + ",'" + v + "')\">" + ratingIcon(v) + "</button>").join("");
+}
+
+async function rate(recipeId, rating) {
+  const r = RECIPES.find(x => x.id === recipeId);
+  const clearing = r && r.rating === rating;
+  await api("/api/recipes/" + recipeId + "/rating" + (clearing ? "" : "?rating=" + rating),
+    { method: "PUT" });
+  RECIPES = await api("/api/recipes");
+  if (!viewToday.hidden) await loadToday();
+  if (!viewWeek.hidden) renderWeek();
+}
+
+/** Clears this meal and every later one that was eating its leftovers. */
+async function notMade(slotId) {
+  await api("/api/week/slots/" + slotId + "/not-made", { method: "PUT" });
+  await loadWeek();
+  if (!viewToday.hidden) await loadToday();
+}
+
+/* ---- prep list ---- */
+
+let PREP = null, prepOnlyUnchecked = false;
+
+async function loadPrep() {
+  PREP = await api("/api/week/prep?start=" + start);
+  renderPrep();
+}
+
+function prepOnlyUnchecked_el() { return document.getElementById("prepOnlyUnchecked"); }
+
+function togglePrepFilter() {
+  prepOnlyUnchecked = !prepOnlyUnchecked;
+  renderPrep();
+}
+
+function renderPrep() {
+  const p = PREP;
+  if (!p) return;
+  const end = new Date(p.start + "T12:00:00"); end.setDate(end.getDate() + 6);
+  const chip = weekChip(p.start);
+  prepRange.innerHTML = "Prep for " + fmt(p.start) + " – " + fmt(iso(end)) +
+    (chip ? ' <span class="chip">' + chip + "</span>" : "");
+
+  if (!p.planned) {
+    prepBody.innerHTML = card("Nothing to prep yet", "These seven days haven't been planned",
+      "Plan them and the cooking list will build itself.", "🧺", true,
+      '<button class="primary" onclick="show(\'week\')">Go to the plan</button>');
+    return;
+  }
+
+  const warn = p.unplannedMeals > 0
+    ? card("Heads up", p.unplannedMeals + " meal" + (p.unplannedMeals > 1 ? "s" : "") + " unplanned",
+        "The list below covers what's planned so far.", "⚠️", true,
+        '<button class="primary" onclick="show(\'week\')">Finish the plan</button>')
+    : "";
+
+  const match = d => !prepOnlyUnchecked || d.unverified;
+  const sessions = p.sessions.map(x => ({ ...x, dishes: x.dishes.filter(match) }))
+    .filter(x => x.dishes.length);
+  const carried = p.carriedIn.filter(match);
+
+  prepOnlyUnchecked_el().classList.toggle("on", prepOnlyUnchecked);
+  prepOnlyUnchecked_el().textContent = prepOnlyUnchecked
+    ? "Showing unchecked only" : "Only unchecked imports";
+
+  if (!sessions.length && !carried.length) {
+    prepBody.innerHTML = warn + '<div class="empty-state">Nothing here' +
+      (prepOnlyUnchecked ? " is an unchecked import." : ".") + "</div>";
+    return;
+  }
+
+  // Headings are a day's cooking, not a day's eating.
+  let html = "";
+  for (const x of sessions) {
+    html += '<div class="daygroup">' + (x.today ? "Today — " : "") + x.dayName + " · " +
+      fmt(x.date) + " · make " + x.dishes.length +
+      (x.dishes.length === 1 ? " dish" : " dishes") + "</div>" +
+      x.dishes.map(d => dishRow(d, false)).join("");
+  }
+  if (carried.length) {
+    html += '<div class="daygroup">Already in the fridge · nothing to make</div>' +
+      carried.map(d => dishRow(d, true)).join("");
+  }
+
+  const toMake = sessions.reduce((n, x) => n + x.dishes.length, 0);
+  let summary;
+  if (prepOnlyUnchecked) {
+    const n = toMake + carried.length;
+    summary = n + " unchecked " + (n === 1 ? "dish" : "dishes") + " in these seven days";
+  } else {
+    const t = p.sessions.find(x => x.today);
+    const todayCount = t ? t.dishes.length : 0;
+    summary = "Today: " + todayCount + (todayCount === 1 ? " dish" : " dishes") + " to make · " +
+      toMake + " across the week · " + carried.length + " already made";
+  }
+  prepBody.innerHTML = warn + '<p class="vcount">' + summary + " · click a dish to edit</p>" + html;
+}
+
+function dishRow(d, carried) {
+  const spread = d.meals > 1 ? d.feeds.join(", ") : d.feeds[0];
+  return '<div class="prow' + (d.unverified ? " unchecked" : "") +
+    '" onclick="openRecipe(' + d.recipeId + ')" title="Edit this recipe">' +
+    '<span class="when">' + (carried ? "made " + d.cookDay : "") + "</span>" +
+    '<span class="what"><span class="nm">' + esc(d.name) +
+      (d.side ? ' <span class="sidebadge">Side</span>' : "") +
+      (d.unverified ? ' <span class="checkbadge">Unchecked import</span>' : "") + "</span>" +
+    '<span class="det">feeds ' + esc(spread) + "</span></span>" +
+    '<span class="count">' + d.meals + (d.meals > 1 ? " meals" : " meal") + "</span></div>";
+}
+
+/* ---- snooze ---- */
+
+/**
+ * Holds a recipe back from this seven days and the next, pulls it out of the plan, and fills
+ * the hole it leaves. This is also the "reroll" — the way to say "not this, pick something else".
+ */
+async function snooze(recipeId) {
+  await api("/api/recipes/" + recipeId + "/snooze?fromWeek=" + start, { method: "POST" });
+  if (pickDlg.open) pickDlg.close();
+  RECIPES = await api("/api/recipes");
+  WEEK = await api("/api/week/autofill?start=" + start, { method: "POST" });
+  renderWeek();
+  if (!viewToday.hidden) await loadToday();
+}
+
+async function unsnooze(recipeId) {
+  await api("/api/recipes/" + recipeId + "/snooze", { method: "DELETE" });
+  RECIPES = await api("/api/recipes");
+  if (!viewRecipes.hidden) await loadRecipes();
+}
+
+/* ---- recipes ---- */
+
+async function loadRecipes() {
+  RECIPES = await api("/api/recipes");
+  renderRecipes();
+}
+
+function renderRecipes() {
+  if (RECIPES.length === 0) {
+    recipes.innerHTML = '<div class="empty-state">No recipes yet.<br>' +
+      "Add the meals you actually cook — servings and Daily Dozen ticks are all the planner needs.</div>";
+    return;
+  }
+  const q = (rqSearch.value || "").trim().toLowerCase();
+  const shown = q ? RECIPES.filter(r => r.name.toLowerCase().includes(q)) : RECIPES;
+  recipes.innerHTML = '<p class="vcount">Showing ' + shown.length + " of " + RECIPES.length +
+    (q ? ' matching "' + esc(q) + '"' : "") + "</p>" +
+    '<div class="rgrid">' + shown.map(r => {
+    const y = r.yields.map(v => v.summary).join(", ") || "no servings set";
+    const cap = r.yields.reduce((n, v) => n + v.servings, 0);
+    const t = r.ticks.map(v => v.count + " " + labelOf(DOZEN, v.item).toLowerCase()).join(", ") || "no ticks set";
+    const badge = (r.rating ? " " + ratingIcon(r.rating) : "") + (r.snoozedThroughWeek ? " 😴" : "") +
+      (r.side ? ' <span class="sidebadge">Side</span>' : "");
+    return '<div class="rcard"><h3>' + esc(r.name) + badge + "</h3>" +
+      '<div class="line rating-tag">' + (r.rating ? labelOf(RATINGS, r.rating) : "Untried — no rating yet") + "</div>" +
+      '<div class="line"><b>Serves</b> ' + esc(y) +
+        (cap ? ' <span class="cap">· max ' + cap + "/week</span>" : "") + "</div>" +
+      '<div class="line"><b>Ticks</b> ' + esc(t) + "</div>" +
+      (r.notes ? '<div class="line">' + esc(r.notes) + "</div>" : "") +
+      (r.snoozedThroughWeek
+        ? '<div class="line snoozed">Snoozed until ' + fmt(r.snoozedThroughWeek) + "</div>"
+        : "") +
+      '<div class="acts"><button class="sm" onclick="openRecipe(' + r.id + ')">Edit</button>' +
+      (r.snoozedThroughWeek
+        ? '<button class="sm" onclick="unsnooze(' + r.id + ')">Wake up</button>' : "") +
+      '<button class="sm ghost danger" onclick="deleteRecipe(' + r.id + ')">Delete</button></div></div>';
+  }).join("") + "</div>";
+}
+
+function labelOf(list, name) { const m = list.find(x => x.name === name); return m ? m.label : name; }
+
+function openRecipe(id) {
+  editingId = id ?? null;
+  const r = id ? RECIPES.find(x => x.id === id) : null;
+  rdTitle.textContent = r ? "Edit recipe" : "Add recipe";
+  rdName.value = r ? r.name : "";
+  rdNotes.value = r && r.notes ? r.notes : "";
+  rdSide.checked = !!(r && r.side);
+  rdDelete.hidden = !editingId;
+  rdYields.innerHTML = "";
+  rdTicks.innerHTML = "";
+  (r && r.yields.length ? r.yields : [{ mealTypes: ["DINNER"], servings: 1 }])
+    .forEach(y => addYieldRow(y.mealTypes, y.servings));
+  const tickCounts = {};
+  if (r) r.ticks.forEach(t => { tickCounts[t.item] = t.count; });
+  renderTickGrid(tickCounts);
+  recipeDlg.showModal();
+}
+
+function addYieldRow(mealTypes, servings) {
+  const picked = mealTypes && mealTypes.length ? mealTypes : ["DINNER"];
+  const div = document.createElement("div");
+  div.className = "rowline yieldrow";
+  div.innerHTML = '<input type="number" min="1" value="' + (servings || 1) + '" title="Servings">' +
+    '<div class="chips">' + MEALS.map(m =>
+      '<button type="button" class="mealchip' + (picked.includes(m.name) ? " on" : "") +
+      (m.required ? "" : " optional") + '" data-meal="' + m.name +
+      '" onclick="this.classList.toggle(\'on\')">' + m.label + "</button>").join("") +
+    '</div><button class="sm ghost" onclick="this.parentNode.remove()">✕</button>';
+  rdYields.appendChild(div);
+}
+
+/* Ten fixed cells, one per recipe-driven Dozen item — much faster to fill in than a
+   dropdown plus a number box per tick. Counts live in data-n. */
+function renderTickGrid(counts) {
+  rdTicks.innerHTML = DOZEN.filter(d => d.fromRecipes).map(d => {
+    const n = counts[d.name] || 0;
+    return '<div class="tick' + (n ? " on" : "") + '" data-item="' + d.name + '" data-n="' + n +
+      '" onclick="bumpTick(this, 1)">' +
+      '<span class="lbl">' + d.label + ' <span class="tgt">/' + d.dailyTarget + "</span></span>" +
+      '<button class="minus" onclick="event.stopPropagation();bumpTick(this.parentNode, -1)">−</button>' +
+      '<span class="n">' + n + "</span></div>";
+  }).join("");
+}
+
+function bumpTick(cell, delta) {
+  const n = Math.max(0, parseInt(cell.dataset.n, 10) + delta);
+  cell.dataset.n = n;
+  cell.querySelector(".n").textContent = n;
+  cell.classList.toggle("on", n > 0);
+}
+
+async function saveRecipe() {
+  const name = rdName.value.trim();
+  if (!name) { alert("Give the recipe a name."); return; }
+  const yields = [...rdYields.querySelectorAll(".yieldrow")].map(row => ({
+    mealTypes: [...row.querySelectorAll(".mealchip.on")].map(c => c.dataset.meal),
+    servings: parseInt(row.querySelector("input[type=number]").value || "0", 10)
+  })).filter(y => y.mealTypes.length > 0 && y.servings > 0);
+  if (yields.length === 0) { alert("Each row needs a serving count and at least one meal."); return; }
+  const ticks = [...rdTicks.querySelectorAll(".tick")]
+    .map(cell => ({ item: cell.dataset.item, count: parseInt(cell.dataset.n, 10) }))
+    .filter(t => t.count > 0);
+
+  const body = { name, notes: rdNotes.value.trim(), active: true, side: rdSide.checked, yields, ticks };
+  await api("/api/recipes" + (editingId ? "/" + editingId : ""), {
+    method: editingId ? "PUT" : "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  recipeDlg.close();
+  RECIPES = await api("/api/recipes");
+  await loadRecipes();
+  if (!viewPrep.hidden) await loadPrep();
+  if (!viewToday.hidden) await loadToday();
+  await loadWeek();
+}
+
+/**
+ * Deletes a recipe from the library, wherever it was invoked from. It also disappears from any
+ * meal it was assigned to, so the week is replanned to fill the hole it leaves.
+ * @param fromDialog true when called from the edit form, which needs closing first
+ */
+async function deleteRecipe(id, fromDialog) {
+  if (!id) return;
+  const r = RECIPES.find(x => x.id === id);
+  const name = r ? r.name : "this recipe";
+  if (!confirm('Delete "' + name + '" from your recipes? This can\'t be undone.')) return;
+
+  await api("/api/recipes/" + id, { method: "DELETE" });
+  if (fromDialog) recipeDlg.close();
+  if (pickDlg.open) pickDlg.close();
+
+  RECIPES = await api("/api/recipes");
+  const planned = WEEK && WEEK.days.some(d => d.slots.some(s => s.recipeId === id || s.sideRecipeId === id));
+  if (planned) {
+    WEEK = await api("/api/week/autofill?start=" + start, { method: "POST" });
+    renderWeek();
+  } else {
+    await loadWeek();
+  }
+  if (!viewRecipes.hidden) await loadRecipes();
+  if (!viewPrep.hidden) await loadPrep();
+}
+
+function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]); }
+
+(async function init() {
+  start = iso(new Date());
+  [MEALS, DOZEN] = await Promise.all([
+    api("/api/reference/meals"), api("/api/reference/dozen")]);
+  RATINGS = [{ name: "UP", label: "Thumbs up" }, { name: "MID", label: "Thumbs middle" },
+             { name: "DOWN", label: "Thumbs down" }];
+  RECIPES = await api("/api/recipes");
+  await loadWeek();
+})();
+</script>
+</body>
+</html>
